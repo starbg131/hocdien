@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mô phỏng điện công nghiệp</title>
+<style>
+:root{--bg:#101722;--panel:#182333;--panel2:#202e40;--line:#34465c;--text:#e8eef6;--muted:#9aabc0;--accent:#39b6a2;--yellow:#f6c85f;--red:#ed6a5a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 "Segoe UI",Arial,sans-serif}
+header{height:58px;background:#121d2b;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;padding:0 18px}
+.logo{width:30px;height:30px;border-radius:8px;background:var(--accent);display:grid;place-items:center;color:#071b1a;font-weight:900}
+header strong{font-size:16px}header small{color:var(--muted)}.spacer{flex:1}
+button,select,input{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:8px 11px;cursor:pointer}
+button:hover{border-color:var(--accent)}button.primary{background:var(--accent);border-color:var(--accent);color:#06201d;font-weight:700}
+button.danger{color:#ff9b91}.toolbar{display:flex;gap:7px}
+main{display:grid;grid-template-columns:240px 1fr 260px;height:calc(100vh - 58px)}
+aside{background:var(--panel);overflow:auto;padding:14px;border-right:1px solid var(--line)}aside.right{border-right:0;border-left:1px solid var(--line)}
+h3{margin:4px 0 12px;font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:#b8c8da}
+.group{margin-bottom:18px}.parts{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.part{background:#202e40;border:1px solid #34465c;border-radius:8px;padding:9px 7px;text-align:center;cursor:grab;min-height:68px}
+.part:hover{border-color:var(--accent);background:#263b4c}.part img{width:100%;height:72px;object-fit:contain;display:block;margin:0 auto 4px;border-radius:5px}.part .sym{font-size:20px;color:var(--yellow);display:block;margin-bottom:4px}.part small{font-size:11px;color:#b8c8da}
+.workspace{display:flex;flex-direction:column;min-width:0}.workbar{height:45px;padding:7px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;background:#141f2d}
+.canvaswrap{flex:1;overflow:auto;background-color:#0d1520;background-image:radial-gradient(#34465c 1px,transparent 1px);background-size:20px 20px;position:relative}
+#board{width:1500px;height:900px;display:block}.hint{color:var(--muted);font-size:12px}
+.node{fill:#f6c85f;stroke:#192433;stroke-width:2;cursor:crosshair}.node:hover{fill:#fff}.wire{stroke-width:3;fill:none;cursor:pointer}.wire.live{stroke:#ffe36e !important;stroke-width:5;filter:drop-shadow(0 0 5px #ffd84d);stroke-linecap:round;animation:wirePulse .9s ease-in-out infinite alternate}@keyframes wirePulse{from{opacity:.75}to{opacity:1}}
+.wire.short{stroke:#ff3028 !important;stroke-width:5;stroke-dasharray:9 6;filter:drop-shadow(0 0 7px #ff3028);animation:shortWirePulse .35s linear infinite}
+@keyframes shortWirePulse{0%{opacity:.65;stroke-dashoffset:0}100%{opacity:1;stroke-dashoffset:15}}
+.short-bolt{font-size:30px;font-weight:900;fill:#ff3028;stroke:#fff2a8;stroke-width:.8px;paint-order:stroke;filter:drop-shadow(0 0 7px #ff3028);text-anchor:middle;dominant-baseline:middle;pointer-events:none;animation:boltFlash .22s steps(2,end) infinite}
+@keyframes boltFlash{0%,100%{opacity:1}50%{opacity:.35}}
+
+.device.energized rect{stroke:#f6c85f;stroke-width:3;filter:drop-shadow(0 0 5px #f6c85f)}
+.device.running rect{stroke:#39b6a2;stroke-width:3;filter:drop-shadow(0 0 5px #39b6a2)}
+.device rect{fill:#182333;stroke:#8296ad;stroke-width:1.5;rx:8}.device .device-name{font-size:12px;font-weight:700;fill:#fff}.device .pin-label{font-size:9px;fill:#f5f7fa}.device.selected rect{stroke:#ffd84d;stroke-width:5;fill:#34445a;filter:drop-shadow(0 0 9px #ffd84d)}.device text{fill:#e8eef6;font-size:13px;text-anchor:middle;pointer-events:none}.device .symbol{font-size:24px;fill:#f6c85f}.device .sub{font-size:10px;fill:#a9b9ca}
+.status{padding:10px;border-radius:8px;background:#202e40;margin:8px 0;color:#b8c8da}.status b{color:var(--text)}.kv{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #2c3a4d}.log{font-size:12px;color:#b8c8da;white-space:pre-wrap;max-height:190px;overflow:auto}
+footer{padding:9px 12px;border-top:1px solid var(--line);background:#141f2d;color:var(--muted);font-size:11px}
+@media(max-width:950px){main{grid-template-columns:190px 1fr}.right{display:none}}
+.wire-handle{fill:#fff;stroke:#1677ff;stroke-width:2;cursor:move}.wire-handle:hover{r:8}.wire.selected-wire{stroke-width:4;filter:drop-shadow(0 0 3px #69aaff)}
+ .symbol-panel{fill:#101d2b;stroke:#60758b;stroke-width:1}.symbol-code{font-size:17px;font-weight:800;fill:#ffcf5a}.symbol-caption{font-size:10px;fill:#d7e3f1}.contact-symbol-label{font-size:9px;fill:#d7e3f1}.schematic-line{stroke:#f4d16b;stroke-width:1.8;fill:none;stroke-linecap:round}.pin-label{font-size:10px;fill:#f5f7fa;font-weight:700;paint-order:stroke;stroke:#172435;stroke-width:2px;stroke-linejoin:round}
+.device-resize-handle{fill:#fff;stroke:#2e91ff;stroke-width:2;cursor:nwse-resize;opacity:0;pointer-events:none}
+.device:hover .device-resize-handle,.device.selected .device-resize-handle{opacity:1;pointer-events:all}
+#board{touch-action:pan-x pan-y}
+</style></head><body>
+<header><div class="logo">E</div><div><strong>Mô phỏng điện công nghiệp</strong><br><small>Mô phỏng đấu nối điện công nghiệp · Bản thiết bị chân đấu hai bên 0.9</small></div><div class="spacer"></div>
+<div class="toolbar"><button id="new">Mạch mới</button><button id="save">Lưu JSON</button><button id="openFile">Mở JSON</button><button class="primary" id="run">▶ Chạy mô phỏng</button></div></header>
+<main><aside><div class="group"><h3>Nguồn điện</h3><div class="parts" id="power"></div></div><div class="group"><h3>Bảo vệ & đóng cắt</h3><div class="parts" id="switchgear"></div></div><div class="group"><h3>Điều khiển</h3><div class="parts" id="control"></div></div><div class="group"><h3>Tải & truyền động</h3><div class="parts" id="load"></div></div><div class="group"><h3>Tự động hóa</h3><div class="parts" id="auto"></div></div><p class="hint">Chọn thiết bị để thêm vào bảng. Giữ chuột trái trên thân để di chuyển; click 1 lần để chọn/bôi sáng; click 2 lần để mở điều khiển. Chọn hai chân để nối dây.</p></aside>
+<section class="workspace"><div class="workbar"><button id="wiremode" class="primary">⌁ Nối dây: BẬT</button>
+<label class="hint">Màu dây:
+<select id="wireColor"><option value="auto">Tự động theo chân</option><option value="#ff3b30">Đỏ – dây pha</option><option value="#2588ff">Xanh dương – trung tính</option><option value="#f2c94c">Vàng</option><option value="#39b6a2">Xanh lá</option><option value="#f5f5f5">Trắng</option><option value="#b58cff">Tím</option></select></label>
+<button id="delete" class="danger">Xóa thiết bị/dây</button><button id="demo">Nạp mạch khởi động trực tiếp</button><label class="hint">Nguồn kiểm tra:
+<select id="supplyVoltage"><option value="24">24VDC</option><option value="220" selected>220VAC</option><option value="380">380VAC</option></select></label><span class="spacer"></span><span class="hint" id="modehint">Giữ chuột trái trên thân thiết bị để di chuyển · Click 1 lần để chọn, click 2 lần để mở điều khiển</span></div><div class="canvaswrap"><svg id="board" viewBox="0 0 1500 900" aria-label="Bảng thiết kế mạch điện">
+<g id="viewport"><g id="wires"></g><g id="devices"></g></g>
+</svg></div><footer>Đồ án học tập. Mô phỏng logic cơ bản, không thay thế phần mềm tính toán/nghiệm thu và không dùng để hướng dẫn đấu điện trực tiếp khi đang có điện.</footer></section>
+<aside class="right"><h3>Thuộc tính & trạng thái</h3><div id="props" class="status">Chưa chọn thiết bị.<br>Nhấp vào thiết bị trên bảng để xem thông tin.</div><h3>Nhật ký mô phỏng</h3><div id="log" class="log">Sẵn sàng. Thêm thiết bị và nối dây để bắt đầu.</div><h3>Hướng dẫn nhanh</h3><div class="hint">1. Thêm nguồn và thiết bị.<br><br>2. Chọn chân (chấm vàng), click chuột phải tại các điểm trên nền để tạo góc đi dây, rồi chọn chân đích.<br><br>3. Click 1 lần để chọn/bôi sáng; click 2 lần liên tiếp để mở điều khiển ở khung bên phải. Với nút NO/NC, giữ nút điều khiển để NHẤN và thả để NHẢ.<br><br>4. Nhấn Chạy mô phỏng để kiểm tra đường điện đang được cấp.<br><br>5. Nếu nối chập các cực/pha khác nhau của nguồn (ví dụ L với N hoặc hai pha khác nhau), các dây thuộc điểm chập sẽ nhấp nháy đỏ và hiện tia sét ⚡. Đây là cảnh báo mô phỏng logic, không phải mô phỏng dòng ngắn mạch hay thiết bị bảo vệ thực tế.</div></aside></main>
+<input type="file" id="file" accept=".json" hidden>
+<script>
+const catalog={
+ power:[['ac1','Nguồn AC 1 pha','ϟ','L,N'],['ac3','Nguồn AC 3 pha','ϟ','L1,L2,L3,N'],['dc24','Nguồn 24VDC','⎓','+24V,0V'],['psu','Bộ nguồn 220VAC/24VDC','▣','L,N,+24V,0V']],
+ switchgear:[['mcb1','Aptomat 1P/2P','⊓','IN-L,IN-N,OUT-L,OUT-N'],['mcb3','Aptomat 3P','⊓','R1,S1,T1,R2,S2,T2'],['mc2','Contactor 2P','K','1L1,3L2,2T1,4T2,A1a,A1b,A2a,A2b,13,14,21,22'],['mc3','Contactor 3P','K','L1,L2,L3,T1,T2,T3,A1a,A1b,A2a,A2b,13,14,21,22'],['ol','Relay nhiệt','Θ','L1,L2,L3,T1,T2,T3,95,96,97,98']],
+ control:[['pbno','Nút nhấn NO','○','13,14'],['pb nc','Nút nhấn NC','●','11,12'],['relay220','Relay trung gian 220V','R','A1,A2,11,12,14,21,22,24'],['relay24','Relay trung gian 24V','R','A1,A2,11,12,14,21,22,24'],['lamp220','Đèn báo 220V','●','X1,X2'],['lamp24','Đèn báo 24V','●','+,−']],
+ load:[['motor3','Motor 3 pha','M','U,V,W,PE'],['vfd','Biến tần','▤','R/L1,S/L2,T/L3,U,V,W,STF,STR,SD,10,2,5'],['buzzer','Còi báo','♫','+,−']],
+ auto:[['plc','PLC cơ bản','PLC','L+,M,X0,X1,Y0,Y1,COM'],['sensor','Cảm biến 3 dây PNP','◇','BN+,BU0V,BK OUT'],['solenoid','Van điện từ 24VDC','V','+,−'],['limit','Công tắc hành trình','⇥','COM,NO,NC'],['timer','Timer relay','◷','A1,A2,15,16,18']]
+};
+const assetMap={
+ mcb1:'assets/mcb1.png',mcb3:'assets/mcb3.png',mc2:'assets/contactor2.png',mc3:'assets/contactor3.png',ol:'assets/overload.png',
+ pbno:'assets/pbno.png','pb nc':'assets/pb_nc.png',relay220:'assets/relay220.png',relay24:'assets/relay24.png',
+ lamp220:'assets/lamp_red.png',lamp24:'assets/lamp_green.png',motor3:'assets/motor3.png',vfd:'assets/vfd.png',
+ psu:'assets/psu.png',timer:'assets/timer.png',limit:'assets/emergency.png',ac1:'assets/psu.png',ac3:'assets/mcb3.png',
+ dc24:'assets/psu.png',buzzer:'assets/lamp_yellow.png',plc:'assets/psu.png',sensor:'assets/relay220.png',solenoid:'assets/relay220.png'
+};
+let items=[],wires=[],selected=null,selectedWire=null,first=null,routePoints=[],wireMode=true,running=false,id=0,drag=null,cornerDrag=null,resizeDrag=null,lastTapId=null,lastTapAt=0,heldControlRelease=null,expandedControl=null,viewScale=1,viewX=0,viewY=0,simulation={powered:new Set(),active:new Set(),rails:new Map(),faults:[]};
+const $=s=>document.querySelector(s),svgNS='http://www.w3.org/2000/svg';
+function el(tag,attrs,parent){let e=document.createElementNS(svgNS,tag);Object.entries(attrs||{}).forEach(([k,v])=>e.setAttribute(k,v));parent.appendChild(e);return e}
+function log(s){$('#log').textContent=new Date().toLocaleTimeString()+' · '+s+'\n'+$('#log').textContent}
+function pins(item){return item.pins.split(',')}
+function pinRows(item){
+ const p=pins(item),top=[],bottom=[];
+ const put=(names,row)=>names.forEach(n=>{if(p.includes(n))(row==='T'?top:bottom).push(n)});
+ if(item.type==='mcb1'){put(['IN-L','IN-N'],'T');put(['OUT-L','OUT-N'],'B');}
+ else if(item.type==='mcb3'){put(['R1','S1','T1'],'T');put(['R2','S2','T2'],'B');}
+ else if(item.type==='mc2'){put(['1L1','3L2','A1a','A1b','13','21'],'T');put(['2T1','4T2','A2a','A2b','14','22'],'B');}
+ else if(item.type==='mc3'){put(['L1','L2','L3','A1a','A1b','13','21'],'T');put(['T1','T2','T3','A2a','A2b','14','22'],'B');}
+ else if(item.type==='ol'){put(['L1','L2','L3','95','97'],'T');put(['T1','T2','T3','96','98'],'B');}
+ else {
+  const inputNames={
+   ac1:['L','N'],ac3:['L1','L2','L3','N'],dc24:['+24V'],psu:['L','N'],
+   relay220:['A1','11','21'],relay24:['A1','11','21'],pbno:['13'], 'pb nc':['11'],
+   limit:['COM'],timer:['A1','15'],motor3:['U','V','W','PE'],vfd:['R/L1','S/L2','T/L3','STF','STR','10'],
+   plc:['L+','M','X0','X1'],sensor:['BN+','BU0V'],solenoid:['+'],lamp220:['X1'],lamp24:['+'],buzzer:['+']
+  }[item.type]||p.slice(0,Math.ceil(p.length/2));
+  put(inputNames,'T');p.filter(n=>!top.includes(n)).forEach(n=>bottom.push(n));
+ }
+ // Keep all terminals in exactly one row, even if a future device adds new pins.
+ p.forEach(n=>{if(!top.includes(n)&&!bottom.includes(n))bottom.push(n)});
+ return {top,bottom};
+}
+function pinPosition(item,index){
+ const p=pins(item),name=p[index],rows=pinRows(item),isTop=rows.top.includes(name),row=isTop?rows.top:rows.bottom;
+ const idx=row.indexOf(name),width=220,pad=18,usable=width-pad*2,sc=item.scale||1;
+ return {x:item.x+(pad+(row.length<=1?usable/2:idx*usable/(row.length-1)))*sc,y:item.y+(isTop?0:220*sc)};
+}
+function addPart(type,name,symbol,pinstr,x=150+Math.random()*800,y=130+Math.random()*550){let a={id:++id,type,name,symbol,pins:pinstr,img:assetMap[type],x,y,scale:1,state:['pbno','pb nc','limit'].includes(type)?'NHẢ':'BẬT'};items.push(a);render();select(a.id);log('Đã thêm '+name)}
+Object.entries(catalog).forEach(([g,arr])=>arr.forEach(([t,n,s,p])=>{let d=document.createElement('div');d.className='part';d.draggable=true;d.innerHTML=`<img src="${assetMap[t]||''}" alt="${n}"><small>${n}</small>`;d.onclick=()=>addPart(t,n,s,p);d.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',t);e.dataTransfer.effectAllowed='copy'});$('#'+g).appendChild(d)}));
+$('#board').addEventListener('dragover',e=>{e.preventDefault();e.dataTransfer.dropEffect='copy'});
+$('#board').addEventListener('drop',e=>{e.preventDefault();let t=e.dataTransfer.getData('text/plain');let part=Object.values(catalog).flat().find(v=>v[0]===t);if(part){let q=svgPoint(e);addPart(part[0],part[1],part[2],part[3],q.x-110,q.y-110);}});
+function render(){let dg=$('#devices'),wg=$('#wires');dg.innerHTML='';wg.innerHTML='';
+wires.forEach((w,i)=>{let a=pinPos(w.a),b=pinPos(w.b);if(!a||!b)return;let anchors=[a,...(w.route||[]),b],pts=[anchors[0]];
+ anchors.slice(1).forEach(q=>{let prev=pts[pts.length-1];if(Math.abs(q.x-prev.x)>2&&Math.abs(q.y-prev.y)>2)pts.push({x:q.x,y:prev.y});pts.push(q)});
+ let d=pts.map((q,j)=>(j?'L':'M')+q.x+','+q.y).join(' ');el('path',{d,stroke:w.color||'#ff3b30',class:'wire'+(running&&w.live?' live':'')+(running&&w.short?' short':'')+(selectedWire===i?' selected-wire':''),'data-wire':i},wg).addEventListener('click',e=>{e.stopPropagation();selectedWire=selectedWire===i?null:i;selected=null;$('#props').textContent='Đã chọn dây. Nhấn Xóa thiết bị/dây để xóa hoặc kéo các chấm góc để chỉnh.';render()});
+ if(running&&w.short){
+  let total=0,lens=pts.slice(1).map((q,j)=>{let p=pts[j],len=Math.hypot(q.x-p.x,q.y-p.y);total+=len;return len});
+  let target=total/2,acc=0,bp=pts[0];
+  for(let j=0;j<lens.length;j++){if(acc+lens[j]>=target){let p=pts[j],q=pts[j+1],t=lens[j]?(target-acc)/lens[j]:0;bp={x:p.x+(q.x-p.x)*t,y:p.y+(q.y-p.y)*t};break}acc+=lens[j]}
+  el('text',{x:bp.x,y:bp.y,class:'short-bolt'},wg).textContent='⚡';
+ }
+ if(selectedWire===i)(w.route||[]).forEach((q,ri)=>{let h=el('circle',{cx:q.x,cy:q.y,r:6,class:'wire-handle',title:'Kéo để chỉnh góc dây'},wg);h.addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();cornerDrag={wire:i,index:ri};});});
+ });
+items.forEach(a=>{
+ let g=el('g',{class:'device'+(selected===a.id?' selected':'')+(simulation.active.has(a.id)?' running':'')+(simulation.powered.has(a.id)?' energized':''),transform:`translate(${a.x},${a.y}) scale(${a.scale||1})`,'data-id':a.id},dg);
+ const width=220,height=220,rows=pinRows(a);
+ el('rect',{x:0,y:0,width,height,rx:9},g);
+ if(a.img){let pic=el('image',{href:a.img,'xlink:href':a.img,x:10,y:18,width:126,height:116,preserveAspectRatio:'xMidYMid meet'},g);pic.setAttributeNS('http://www.w3.org/1999/xlink','xlink:href',a.img);pic.setAttribute('pointer-events','none');}
+ el('rect',{x:145,y:20,width:65,height:112,rx:5,class:'symbol-panel'},g);
+ el('text',{x:177.5,y:39,class:'symbol-code','text-anchor':'middle'},g).textContent=({mcb1:'QF',mcb3:'QF',mc2:'KM',mc3:'KM',ol:'FR',pbno:'SB','pb nc':'SB',relay220:'KA',relay24:'KA',lamp220:'HL',lamp24:'HL',motor3:'M',vfd:'VFD',plc:'PLC',timer:'KT',limit:'SQ',sensor:'B',solenoid:'YV',psu:'PSU',ac1:'AC',ac3:'3~',dc24:'24V',buzzer:'HA'})[a.type]||a.symbol;
+ if(['mc2','mc3'].includes(a.type)){
+  el('text',{x:151,y:61,class:'contact-symbol-label'},g).textContent='NO 13-14';
+  el('line',{x1:153,y1:75,x2:165,y2:75,class:'schematic-line'},g);
+  el('line',{x1:165,y1:68,x2:165,y2:82,class:'schematic-line'},g);
+  el('line',{x1:185,y1:68,x2:185,y2:82,class:'schematic-line'},g);
+  el('line',{x1:165,y1:75,x2:181,y2:66,class:'schematic-line'},g);
+  el('text',{x:151,y:99,class:'contact-symbol-label'},g).textContent='NC 21-22';
+  el('line',{x1:153,y1:111,x2:165,y2:111,class:'schematic-line'},g);
+  el('line',{x1:165,y1:104,x2:165,y2:118,class:'schematic-line'},g);
+  el('line',{x1:185,y1:104,x2:185,y2:118,class:'schematic-line'},g);
+  el('line',{x1:165,y1:111,x2:185,y2:111,class:'schematic-line'},g);
+ } else if(['relay220','relay24'].includes(a.type)){
+  el('text',{x:151,y:59,class:'contact-symbol-label'},g).textContent='NO 11-14 / 21-24';
+  el('line',{x1:153,y1:73,x2:165,y2:73,class:'schematic-line'},g);
+  el('line',{x1:165,y1:66,x2:165,y2:80,class:'schematic-line'},g);
+  el('line',{x1:185,y1:66,x2:185,y2:80,class:'schematic-line'},g);
+  el('line',{x1:165,y1:73,x2:181,y2:64,class:'schematic-line'},g);
+  el('text',{x:151,y:99,class:'contact-symbol-label'},g).textContent='NC 11-12 / 21-22';
+  el('line',{x1:153,y1:111,x2:165,y2:111,class:'schematic-line'},g);
+  el('line',{x1:165,y1:104,x2:165,y2:118,class:'schematic-line'},g);
+  el('line',{x1:185,y1:104,x2:185,y2:118,class:'schematic-line'},g);
+  el('line',{x1:165,y1:111,x2:185,y2:111,class:'schematic-line'},g);
+ } else if(a.type==='ol'){
+  el('text',{x:151,y:57,class:'contact-symbol-label'},g).textContent='NC 95-96';
+  el('line',{x1:153,y1:73,x2:165,y2:73,class:'schematic-line'},g);
+  el('line',{x1:165,y1:66,x2:165,y2:80,class:'schematic-line'},g);
+  el('line',{x1:185,y1:66,x2:185,y2:80,class:'schematic-line'},g);
+  el('line',{x1:165,y1:73,x2:181,y2:64,class:'schematic-line'},g);
+  el('text',{x:151,y:99,class:'contact-symbol-label'},g).textContent='NO 97-98';
+  el('line',{x1:153,y1:111,x2:165,y2:111,class:'schematic-line'},g);
+  el('line',{x1:165,y1:104,x2:165,y2:118,class:'schematic-line'},g);
+  el('line',{x1:185,y1:104,x2:185,y2:118,class:'schematic-line'},g);
+  el('line',{x1:165,y1:111,x2:181,y2:102,class:'schematic-line'},g);
+ } else if(a.type==='motor3'){
+  el('text',{x:177.5,y:55,class:'contact-symbol-label','text-anchor':'middle'},g).textContent='U  V  W';
+  el('circle',{cx:177.5,cy:91,r:22,class:'schematic-line',fill:'none'},g);
+  el('text',{x:177.5,y:98,class:'symbol-code','text-anchor':'middle'},g).textContent='M 3~';
+ } else {
+  el('text',{x:177.5,y:78,class:'symbol-caption','text-anchor':'middle'},g).textContent=a.symbol||'';
+  el('text',{x:177.5,y:98,class:'symbol-caption','text-anchor':'middle'},g).textContent=({mcb1:'1P / 2P',mcb3:'3P',ol:'95-96 / 97-98',pbno:'NO','pb nc':'NC',relay220:'A1-A2',relay24:'A1-A2',lamp220:'220V',lamp24:'24V',motor3:'3 pha',vfd:'Drive',plc:'I/O',timer:'15-16-18',limit:'COM/NO/NC',sensor:'PNP',solenoid:'24VDC',psu:'AC/DC'})[a.type]||'';
+ }
+ el('text',{x:width/2,y:158,class:'device-name','text-anchor':'middle'},g).textContent=a.name;
+ el('text',{x:width/2,y:177,class:'sub','text-anchor':'middle'},g).textContent=(simulation.active.has(a.id)?'ĐANG HÚT / ĐÓNG':simulation.powered.has(a.id)?'ĐANG CÓ NGUỒN':a.state);
+ g.addEventListener('pointerdown',e=>{
+  if(e.button!==0||e.target.classList.contains('node')||e.target.classList.contains('pin-label')||e.target.classList.contains('device-resize-handle'))return;
+  e.preventDefault();e.stopPropagation();
+  const q=svgPoint(e);
+  drag={id:a.id,pointerId:e.pointerId,dx:q.x-a.x,dy:q.y-a.y,moved:false};
+  selected=a.id;
+  g.classList.add('selected');
+  try{$('#board').setPointerCapture(e.pointerId)}catch(_){}
+ });
+ g.addEventListener('click',e=>{e.stopPropagation();select(a.id,false)});
+ g.addEventListener('dblclick',e=>{
+  e.preventDefault();e.stopPropagation();
+  if(['pbno','pb nc','limit','motor3','vfd'].includes(a.type))select(a.id,true);
+ });
+ pins(a).forEach((p,i)=>{
+  const pos=pinPosition(a,i),isTop=rows.top.includes(p);
+  let c=el('circle',{cx:(pos.x-a.x)/(a.scale||1),cy:isTop?0:height,r:6,class:'node'},g);
+  el('title',{},c).textContent='Chân '+p;
+  c.addEventListener('click',e=>{e.stopPropagation();connect(a.id,i)});
+  let tx=el('text',{x:(pos.x-a.x)/(a.scale||1),y:isTop?15:height-9,class:'sub pin-label','text-anchor':'middle'},g);
+  tx.textContent=({A1a:'A1',A1b:'A1',A2a:'A2',A2b:'A2'})[p]||p;
+ });
+ let rh=el('circle',{cx:width,cy:height,r:8,class:'device-resize-handle',title:'Kéo góc để thay đổi kích thước thiết bị'},g);
+ rh.addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();resizeDrag={id:a.id,startX:e.clientX,startY:e.clientY,startScale:a.scale||1};});
+});
+}
+function wirePathData(w){
+ let a=pinPos(w.a),b=pinPos(w.b);if(!a||!b)return '';
+ let anchors=[a,...(w.route||[]),b],pts=[anchors[0]];
+ anchors.slice(1).forEach(q=>{let prev=pts[pts.length-1];if(Math.abs(q.x-prev.x)>2&&Math.abs(q.y-prev.y)>2)pts.push({x:q.x,y:prev.y});pts.push(q)});
+ return pts.map((q,j)=>(j?'L':'M')+q.x+','+q.y).join(' ');
+}
+function renderWires(){
+ $('#wires').querySelectorAll('.wire').forEach(path=>{
+  const i=Number(path.getAttribute('data-wire')),w=wires[i];if(w)path.setAttribute('d',wirePathData(w));
+ });
+}
+document.addEventListener('pointermove',e=>{
+ if(drag&&drag.pointerId===e.pointerId){
+  const q=svgPoint(e),a=items.find(x=>x.id===drag.id);
+  if(a){
+   const nx=Math.max(5,q.x-drag.dx),ny=Math.max(5,q.y-drag.dy);
+   if(Math.abs(nx-a.x)+Math.abs(ny-a.y)>.5)drag.moved=true;
+   a.x=nx;a.y=ny;
+   const g=$(`#devices [data-id="${a.id}"]`);
+   if(g)g.setAttribute('transform',`translate(${a.x},${a.y}) scale(${a.scale||1})`);
+   renderWires();
+  }
+ }
+ if(cornerDrag){
+  const w=wires[cornerDrag.wire];
+  if(w&&w.route[cornerDrag.index]){const z=svgPoint(e);w.route[cornerDrag.index]={x:z.x,y:z.y};render();}
+ }
+});
+document.addEventListener('pointerup',e=>{
+ if(drag&&drag.pointerId===e.pointerId){
+  const finished=drag;
+  drag=null;
+  if(!finished.moved){
+   const now=Date.now();
+   if(lastTapId===finished.id&&now-lastTapAt<450){
+    lastTapId=null;lastTapAt=0;
+    select(finished.id,true);
+   }else{
+    lastTapId=finished.id;lastTapAt=now;
+    select(finished.id,false);
+   }
+  }
+ }
+ cornerDrag=null;
+});
+document.addEventListener('pointercancel',e=>{
+ if(drag&&drag.pointerId===e.pointerId)drag=null;
+ cornerDrag=null;
+});
+// Nút nhấn ở bảng điều khiển phải nhả ngay khi người dùng thả chuột/ngón tay ở bất kỳ đâu.
+document.addEventListener('pointerup',()=>{if(heldControlRelease)heldControlRelease();},true);
+document.addEventListener('pointercancel',()=>{if(heldControlRelease)heldControlRelease();},true);
+document.addEventListener('mouseup',()=>{if(heldControlRelease)heldControlRelease();},true);
+document.addEventListener('touchend',()=>{if(heldControlRelease)heldControlRelease();},true);
+window.addEventListener('blur',()=>{if(heldControlRelease)heldControlRelease();});
+
+
+
+function pinPos(key){let [aid,pi]=key.split(':').map(Number),a=items.find(x=>x.id===aid);return a?pinPosition(a,pi):null}
+function terminalName(key){let [aid,pi]=key.split(':').map(Number),a=items.find(x=>x.id===aid);return a?pins(a)[pi].toUpperCase():''}
+function autoWireColor(k1,k2){
+ const names=[terminalName(k1),terminalName(k2)];
+ const isNeutral=n=>n==='N'||n.endsWith('-N')||n==='0V'||n==='M';
+ const isPhase=n=>/^(L|L1|L2|L3|R|S|T|R1|S1|T1|R2|S2|T2)$/.test(n)||/^(R\/L1|S\/L2|T\/L3)$/.test(n)||n.startsWith('IN-L')||n.startsWith('OUT-L');
+ if(names.some(isNeutral))return '#2588ff';
+ if(names.some(isPhase))return '#ff3b30';
+ if(names.some(n=>n.includes('24V')||n==='+'))return '#ff3b30';
+ if(names.some(n=>n==='PE'))return '#39b6a2';
+ return '#d5deea';
+}
+function svgPoint(evt){
+ // Route/waypoint coordinates are stored inside #viewport, so convert the
+ // screen pointer through that group's inverse screen matrix. This accounts
+ // for Ctrl+wheel zoom and pan as well as the SVG's responsive scaling.
+ const viewport=$('#viewport');
+ const matrix=viewport.getScreenCTM();
+ if(!matrix)return{x:0,y:0};
+ const pt=$('#board').createSVGPoint();
+ pt.x=evt.clientX;pt.y=evt.clientY;
+ const q=pt.matrixTransform(matrix.inverse());
+ return{x:Math.round(q.x),y:Math.round(q.y)};
+}
+function applyViewport(){ $('#viewport').setAttribute('transform',`translate(${viewX},${viewY}) scale(${viewScale})`); }
+$('#board').addEventListener('wheel',e=>{
+ if(!e.ctrlKey)return;
+ e.preventDefault();
+ const pt=$('#board').createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;
+ const p=pt.matrixTransform($('#board').getScreenCTM().inverse());
+ const next=Math.max(.3,Math.min(3.5,viewScale*(e.deltaY<0?1.12:1/1.12)));
+ const ratio=next/viewScale;
+ viewX=p.x-(p.x-viewX)*ratio;viewY=p.y-(p.y-viewY)*ratio;viewScale=next;
+ applyViewport();
+ $('#modehint').textContent=`Thu phóng bảng: ${Math.round(viewScale*100)}% · Giữ Ctrl + cuộn chuột để thay đổi`;
+},{passive:false});
+document.addEventListener('pointermove',e=>{
+ if(!resizeDrag)return;
+ const a=items.find(x=>x.id===resizeDrag.id);if(!a)return;
+ const delta=Math.max(e.clientX-resizeDrag.startX,e.clientY-resizeDrag.startY);
+ a.scale=Math.max(.55,Math.min(2.2,resizeDrag.startScale+delta/180));
+ const g=$(`#devices [data-id="${a.id}"]`);
+ if(g)g.setAttribute('transform',`translate(${a.x},${a.y}) scale(${a.scale})`);
+ renderWires();
+});
+document.addEventListener('pointerup',()=>{resizeDrag=null;});
+
+function connect(a,i){if(!wireMode)return;let k=a+':'+i;if(!first){first=k;routePoints=[];$('#modehint').textContent='Đã chọn '+items.find(x=>x.id===a).name+' / '+pins(items.find(x=>x.id===a))[i]+' — click phải trên nền để thêm góc, chọn chân đích để hoàn tất';return}if(first===k){first=null;routePoints=[];return}
+ const chosen=$('#wireColor').value;const color=chosen==='auto'?autoWireColor(first,k):chosen;
+ wires.push({a:first,b:k,route:[...routePoints],color,live:false});if(running)solve();log('Đã nối dây '+first+' ↔ '+k+' · màu '+color);first=null;routePoints=[];render()}
+function select(i,revealButton=null){selected=i;if(i!==null)selectedWire=null;if(revealButton===true)expandedControl=i;else if(revealButton===false)expandedControl=null;const showControl=(revealButton===true)||(revealButton===null&&expandedControl===i);let a=items.find(x=>x.id===i);render();if(!a){expandedControl=null;$('#props').textContent='Chưa chọn thiết bị';return}
+let isButton=['pbno','pb nc','limit'].includes(a.type);
+$('#props').innerHTML=`<b>${a.name}</b><div class="kv"><span>Mã thiết bị</span><span>${a.type}</span></div><div class="kv"><span>Chân đấu nối</span><span>${pins(a).join(', ')}</span></div>
+${['mc2','mc3'].includes(a.type)?'<div class="kv"><span>Tiếp điểm chính</span><span>L1-T1 / L2-T2 / L3-T3 (NO)</span></div><div class="kv"><span>Tiếp điểm phụ NO</span><span>13-14</span></div><div class="kv"><span>Tiếp điểm phụ NC</span><span>21-22</span></div><div class="kv"><span>Cuộn hút</span><span>A1-A2</span></div>':''}
+${['relay220','relay24'].includes(a.type)?'<div class="kv"><span>Tiếp điểm NO</span><span>11-14, 21-24</span></div><div class="kv"><span>Tiếp điểm NC</span><span>11-12, 21-22</span></div><div class="kv"><span>Cuộn hút</span><span>A1-A2</span></div>':''}
+${a.type==='ol'?'<div class="kv"><span>Tiếp điểm NC</span><span>95-96 (đóng bình thường)</span></div><div class="kv"><span>Tiếp điểm NO</span><span>97-98 (đóng khi quá tải)</span></div><div class="kv"><span>Mạch động lực</span><span>L1/T1, L2/T2, L3/T3</span></div>':''}
+${a.type==='motor3'?'<div class="kv"><span>Đầu dây động cơ</span><span>U, V, W, PE</span></div><div class="kv"><span>Nguồn</span><span>3 pha</span></div>':''}
+<div class="kv"><span>Trạng thái</span><b>${simulation.active.has(a.id)?'ĐANG HÚT':a.state}</b></div>
+${!showControl?'<p class="hint">Đã chọn thiết bị. Nhấp đúp chuột trái để mở chức năng điều khiển ở khung bên phải.</p>':`<p><button id="toggle" class="primary">${isButton?'Giữ để NHẤN':a.type==='ol'?(a.state==='TÁC ĐỘNG'?'RESET RELAY NHIỆT':'MÔ PHỎNG QUÁ TẢI'):'Đóng / mở thiết bị'}</button></p>
+<p class="hint">${isButton?'Giữ nút này để NHẤN; thả chuột để trở về NHẢ.':'Điều khiển trạng thái thiết bị. Với contactor/relay, cuộn hút vẫn tự tác động theo nguồn cấp trong mạch mô phỏng.'}</p>`}`;
+const control=$('#toggle');
+if(isButton&&showControl){
+ const press=()=>{if(a.state!=='NHẤN'){a.state='NHẤN';if(running)solve();const st=$('#props').querySelector('.kv:last-of-type b');if(st)st.textContent='ĐANG NHẤN';log(a.name+' được nhấn');}};
+ const release=()=>{heldControlRelease=null;if(a.state==='NHẤN'){a.state='NHẢ';if(running)solve();const st=$('#props').querySelector('.kv:last-of-type b');if(st)st.textContent='NHẢ';log(a.name+' được nhả');}};
+ control.addEventListener('pointerdown',e=>{
+  e.preventDefault();
+  if(heldControlRelease)heldControlRelease();
+  heldControlRelease=release;
+  press();
+ });
+}else control.onclick=()=>{
+ if(a.type==='ol')a.state=a.state==='TÁC ĐỘNG'?'BẬT':'TÁC ĐỘNG';
+ else a.state=a.state==='BẬT'?'TẮT':'BẬT';
+ if(running)solve();select(i,true);log(a.name+' → '+a.state);
+};
+}
+$('#wiremode').onclick=()=>{wireMode=!wireMode;$('#wiremode').textContent='⌁ Nối dây: '+(wireMode?'BẬT':'TẮT');first=null};
+$('#delete').onclick=()=>{if(selectedWire!==null){wires.splice(selectedWire,1);selectedWire=null;render()}else if(selected){items=items.filter(a=>a.id!==selected);wires=wires.filter(w=>!w.a.startsWith(selected+':')&&!w.b.startsWith(selected+':'));selected=null;render();select(null)}else if(wires.length){wires.pop();render()}};
+$('#new').onclick=()=>{if(confirm('Xóa sơ đồ hiện tại?')){items=[];wires=[];selected=null;first=null;routePoints=[];running=false;render();select(null);log('Đã tạo mạch mới')}};
+$('#run').onclick=()=>{running=!running;$('#run').textContent=running?'■ Dừng mô phỏng':'▶ Chạy mô phỏng';if(running){solve();log('Đã cấp nguồn mô phỏng và tính trạng thái các thiết bị.')}else{simulation={powered:new Set(),active:new Set(),rails:new Map(),faults:[]};wires.forEach(w=>w.live=false);render();log('Đã dừng mô phỏng; các đầu ra đã mất trạng thái hoạt động.')}};
+
+function solve(pass=0){
+ const previousActive=new Set(simulation.active);
+ const keys=[];items.forEach(a=>pins(a).forEach((_,i)=>keys.push(a.id+':'+i)));
+ const parent=new Map(keys.map(k=>[k,k]));
+ const find=x=>{let p=parent.get(x);if(p!==x){p=find(p);parent.set(x,p)}return p};
+ const join=(a,b)=>{if(parent.has(a)&&parent.has(b))parent.set(find(a),find(b))};
+ const pin=(a,n)=>a.id+':'+pins(a).indexOf(n);
+ const edges=[];
+ // Dây ngoài
+ wires.forEach(w=>edges.push([w.a,w.b]));
+ // Tiếp điểm đóng bên trong thiết bị (ghép theo tên chân, không phụ thuộc thứ tự mảng)
+ items.forEach(a=>{
+  const p=pins(a),add=(x,y)=>{if(p.includes(x)&&p.includes(y))edges.push([a.id+':'+p.indexOf(x),a.id+':'+p.indexOf(y)])};
+  if(a.type==='mcb1'&&a.state==='BẬT'){add('IN-L','OUT-L');add('IN-N','OUT-N');}
+  if(a.type==='mcb3'&&a.state==='BẬT'){add('R1','R2');add('S1','S2');add('T1','T2');}
+  if(['mc2','mc3'].includes(a.type)){
+   // Hai cọc A1 và hai cọc A2 trên contactor là các cọc đấu đôi,
+   // mỗi cặp cùng nối nội bộ về một đầu cuộn hút.
+   add('A1a','A1b');add('A2a','A2b');
+   if(simulation.active.has(a.id)){
+    add('1L1','2T1');add('3L2','4T2');
+    add('L1','T1');add('L2','T2');add('L3','T3');
+    add('13','14');
+   }
+   if(!simulation.active.has(a.id)){add('21','22');}
+  }
+  if(a.type==='pbno'&&a.state==='NHẤN')add('13','14');
+  if(a.type==='pb nc'&&a.state==='NHẢ')add('11','12');
+  if(a.type==='limit'){if(a.state==='NHẢ')add('COM','NC');else add('COM','NO');}
+  if(a.type==='ol'&&a.state==='BẬT'){add('95','96');}
+  if(a.type==='ol'&&a.state==='TÁC ĐỘNG'){add('97','98');}
+  if(['relay220','relay24'].includes(a.type)){
+   if(simulation.active.has(a.id)){add('11','14');add('21','24');}
+   else {add('11','12');add('21','22');}
+  }
+  if(a.type==='timer'){
+   if(simulation.active.has(a.id)){add('15','18');}
+   else {add('15','16');}
+  }
+ });
+ edges.forEach(e=>join(e[0],e[1]));
+ // Nguồn điện và nhãn cực/pha trên các chân đầu ra
+ const sourceRails=new Map();
+ items.forEach(a=>{
+  if(a.state==='TẮT')return;
+  if(a.type==='ac1'){sourceRails.set(pin(a,'L'),'AC-L');sourceRails.set(pin(a,'N'),'AC-N')}
+  if(a.type==='ac3'){['L1','L2','L3','N'].forEach((n,i)=>sourceRails.set(pin(a,n),'AC3-'+n))}
+  if(a.type==='dc24'){sourceRails.set(pin(a,'+24V'),'DC+');sourceRails.set(pin(a,'0V'),'DC-')}
+  if(a.type==='psu'){sourceRails.set(pin(a,'+24V'),'DC+');sourceRails.set(pin(a,'0V'),'DC-')}
+ });
+ const railsByRoot=new Map();sourceRails.forEach((v,k)=>{let r=find(k);if(!railsByRoot.has(r))railsByRoot.set(r,new Set());railsByRoot.get(r).add(v)});
+ const energizedRoots=new Set(railsByRoot.keys());
+ // Ngắn mạch khi hai cực/pha khác nhau bị nối chung vào cùng một nút điện.
+ const shortRoots=new Set();
+ railsByRoot.forEach((railSet,root)=>{if(railSet.size>1)shortRoots.add(root)});
+ simulation.faults=[...shortRoots];
+ wires.forEach(w=>{w.short=shortRoots.has(find(w.a))||shortRoots.has(find(w.b))});
+ const active=new Set(),powered=new Set();
+ const hasPower=(a,n1,n2)=>{let r1=find(pin(a,n1)),r2=find(pin(a,n2));return r1!==r2&&energizedRoots.has(r1)&&energizedRoots.has(r2)};
+ items.forEach(a=>{
+  if(['lamp220','lamp24','buzzer','solenoid'].includes(a.type)&&hasPower(a,pins(a)[0],pins(a)[1]))active.add(a.id);
+  if(a.type==='motor3'&&a.state!=='TẮT'&&['U','V','W'].every(n=>energizedRoots.has(find(pin(a,n)))))active.add(a.id);
+  if(a.type==='vfd'&&['R/L1','S/L2'].every(n=>energizedRoots.has(find(pin(a,n)))))powered.add(a.id);
+ });
+ // Cuộn hút contactor/relay được kích khi hai đầu cuộn thuộc hai đường nguồn khác nhau.
+ items.forEach(a=>{
+  let coil=null;
+  if(['mc2','mc3','relay220','relay24','timer'].includes(a.type))coil=['A1','A2'];
+  if(coil){
+    const coilPins=['mc2','mc3'].includes(a.type)?['A1a','A2a']:coil;
+    if(hasPower(a,...coilPins))active.add(a.id);
+   }
+  if(['mcb1','mcb3','ac1','ac3','dc24','psu'].includes(a.type)&&a.state==='BẬT')powered.add(a.id);
+ });
+ // Lần tính tiếp theo sẽ áp dụng tiếp điểm phụ/chính của contactor đã hút.
+ simulation.active=active;simulation.powered=powered;simulation.rails=railsByRoot;
+ if(pass<4 && (previousActive.size!==active.size || [...previousActive].some(x=>!active.has(x)))) return solve(pass+1);
+ wires.forEach(w=>{w.live=energizedRoots.has(find(w.a))||energizedRoots.has(find(w.b))});
+ render();
+ let on=items.filter(a=>active.has(a.id)).map(a=>a.name);
+ if(shortRoots.size){
+  const faultWires=wires.filter(w=>w.short).length;
+  log('⚡ CẢNH BÁO CHẬP ĐIỆN: phát hiện '+shortRoots.size+' nút bị nối chung các cực/pha khác nhau; '+faultWires+' đoạn dây được đánh dấu tia sét màu đỏ. Hãy dừng mô phỏng và kiểm tra sơ đồ.');
+ }else{
+  log('Kết quả: '+(on.length?'Đang hoạt động: '+on.join(', '):'Chưa có tải/thiết bị nào hoạt động.')+' · Nguồn chọn '+$('#supplyVoltage').value+'V (mức điện áp hiển thị, không tự thay đổi định mức thiết bị).');
+ }
+ if(selected!==null){
+  const chosen=items.find(x=>x.id===selected);
+  const status=$('#props').querySelector('.kv:last-of-type b');
+  if(chosen&&status)status.textContent=simulation.active.has(chosen.id)?'ĐANG HÚT':chosen.state;
+ }
+}
+$('#save').onclick=()=>{let blob=new Blob([JSON.stringify({items,wires},null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='so-do-dien.json';a.click();URL.revokeObjectURL(a.href)};
+$('#openFile').onclick=()=>$('#file').click();$('#file').onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let d=JSON.parse(r.result);items=d.items||[];wires=d.wires||[];id=Math.max(0,...items.map(x=>x.id));render();select(null);log('Đã mở sơ đồ '+f.name)}catch{alert('File JSON không hợp lệ')}};r.readAsText(f)};
+$('#demo').onclick=()=>{items=[];wires=[];id=0;let a=(t,x,y)=>{let v=catalog.power.concat(catalog.switchgear,catalog.control,catalog.load).find(z=>z[0]===t);return addPart(v[0],v[1],v[2],v[3],x,y)};a('ac3',90,90);a('mcb3',330,90);a('mc3',570,90);a('ol',820,90);a('motor3',1110,90);a('pbno',330,350);a('pb nc',550,350);a('relay220',770,350);a('lamp220',1080,350);log('Đã nạp bố cục mẫu khởi động động cơ trực tiếp. Hãy tự nối dây theo sơ đồ điều khiển và động lực.')};
+$('#board').addEventListener('click',e=>{
+ if(e.target.closest('.device')||e.target.closest('.node'))return;
+ if(!first){selected=null;select(null)}
+});
+$('#board').addEventListener('contextmenu',e=>{
+ if(!wireMode||!first)return;
+ e.preventDefault();
+ // Right-click on a device/terminal is not a waypoint; only the free canvas is.
+ if(e.target.closest('.device')||e.target.closest('.node'))return;
+ routePoints.push(svgPoint(e));
+ $('#modehint').textContent='Đã thêm điểm trung gian '+routePoints.length+' tại vị trí con trỏ. Chọn chân đích để hoàn tất dây.';
+ render();
+});
+$('#supplyVoltage').onchange=()=>log('Đã chọn mức nguồn tham chiếu '+$('#supplyVoltage').value+'V. Hãy chọn đúng loại nguồn và cuộn hút tương thích.');
+render();
+</script></body></html>
